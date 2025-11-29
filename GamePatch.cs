@@ -12,6 +12,8 @@ using Fasterflect;
 using static TABModLoader.Utils.Decryptor;
 using System.Reflection.Emit;
 using ZX.Entities;
+using System.Collections;
+using HarmonyLib;
 
 namespace TABHelperMod
 {
@@ -27,6 +29,8 @@ namespace TABHelperMod
         {
             try
             {
+                if (!ModOptions.Instance.FastAttack)
+                    return;
                 var actor = __args[0];
                 var target = __args[1];
                 bool isHumanArmyUnit = actor.GetType().IsSubclassOf(HumanArmyUnitType);
@@ -131,7 +135,7 @@ namespace TABHelperMod
         {
             try
             {
-                if (key == DXKeys.Y)
+                if (key == ResolveKey(ModOptions.Instance.KeyDisplayAllLifeMeters, DXKeys.Y))
                 {
                     if (!ModOptions.Instance.KeepDisplayAllLifeMeters)
                     {
@@ -162,7 +166,7 @@ namespace TABHelperMod
                     var ZXSystem_GameLevelType = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXSystem_GameLevel");
                     Traverse.Create(ZXSystem_GameLevelType).MethodWithDecrypt("get_Current").MethodWithDecrypt("ShowMessage", new Type[] { typeof(string), typeof(System.Drawing.Color), typeof(int) }).GetValue(message, System.Drawing.Color.White, 2000);
                 }
-                else if (key == DXKeys.F)
+                else if (key == ResolveKey(ModOptions.Instance.KeyAutoGoWatchTower, DXKeys.F))
                 {
                     if (!ModOptions.Instance.AutoGoWatchTower)
                     {
@@ -179,7 +183,7 @@ namespace TABHelperMod
                     GamePatch.NumpadFilterVeteran(key);
 
                 }
-                else if (key == DXKeys.Oemplus)
+                else if (key == ResolveKey(ModOptions.Instance.KeyGameSpeedUp, DXKeys.Oemplus))
                 {
                     if (!ModOptions.Instance.GameSpeedChange)
                     {
@@ -210,7 +214,7 @@ namespace TABHelperMod
                         Traverse.Create(ZXSystem_GameLevelType).MethodWithDecrypt("get_Current").MethodWithDecrypt("ShowMessage", new Type[] { typeof(string), typeof(System.Drawing.Color), typeof(int) }).GetValue("Now Game Speed: " + GameSpeed, System.Drawing.Color.White, 2000);
                     }
                 }
-                else if (key == DXKeys.OemMinus)
+                else if (key == ResolveKey(ModOptions.Instance.KeyGameSpeedDown, DXKeys.OemMinus))
                 {
                     if (!ModOptions.Instance.GameSpeedChange)
                     {
@@ -245,7 +249,7 @@ namespace TABHelperMod
 
 
                 }
-                else if (key == DXKeys.V)
+                else if (key == ResolveKey(ModOptions.Instance.KeyFilterVeteran, DXKeys.V))
                 {
                     if (!ModOptions.Instance.FilterVeteranUnit)
                     {
@@ -253,7 +257,7 @@ namespace TABHelperMod
                     }
                     GamePatch.FilterVeteranUnit();
                 }
-                else if (key == DXKeys.L)
+                else if (key == ResolveKey(ModOptions.Instance.KeyFindBonusItem, DXKeys.L))
                 {
                     if (!ModOptions.Instance.AutoFindBonusItem)
                     {
@@ -336,7 +340,7 @@ namespace TABHelperMod
                         Traverse.Create(Command).MethodWithDecrypt("Execute", new Type[] { ZXEntityType, ZXCommandTargetType }).GetValue(entity, _Target);
                     }
                 }
-                else if (key == DXKeys.E)
+                else if (key == ResolveKey(ModOptions.Instance.KeyAutoDisperse, DXKeys.E))
                 {
                     if (!ModOptions.Instance.AutoDisperse)
                     {
@@ -419,7 +423,7 @@ namespace TABHelperMod
                         Traverse.Create(TravelCommand).MethodWithDecrypt("Execute", new Type[] { AccessTools.TypeByName("ZX.Entities.ZXEntity"), AccessTools.TypeByName("ZX.Commands.ZXCommandTarget") }).GetValue(entity, Target);
                     }
                 }
-                else if (key == DXKeys.Delete)
+                else if (key == ResolveKey(ModOptions.Instance.KeyDestroyAllSelected, DXKeys.Delete))
                 {
                     if (!ModOptions.Instance.DestroyAllSelectedUnits)
                     {
@@ -482,7 +486,7 @@ namespace TABHelperMod
                         Traverse.Create(AccessToolsEX.TypeByNameWithDecrypt("ZX.GUI.ZXMessageBox")).MethodWithDecrypt("AskYesNo", new Type[] { typeof(string), typeof(string), typeof(Action), typeof(Action) }).GetValue(title, description, onYes, onNo);
                     }
                 }
-                else if (key == DXKeys.N)
+                else if (key == ResolveKey(ModOptions.Instance.KeyBatchCancel, DXKeys.N))
                 {
                     if (!ModOptions.Instance.BatchCancelCommand)
                     {
@@ -1299,11 +1303,27 @@ namespace TABHelperMod
             {
                 if (instruction.opcode == System.Reflection.Emit.OpCodes.Ldc_I4 && (int)instruction.operand == 1200000)
                 {
-                    instruction.operand = ModOptions.Instance.AutoSaveInterval * 1000;
+                    // replace baked constant with call to live getter
+                    newInstructions.Add(new CodeInstruction(System.Reflection.Emit.OpCodes.Call, AccessTools.Method(typeof(GamePatch), nameof(GetAutoSaveIntervalMs))));
                 }
-                newInstructions.Add(instruction);
+                else
+                {
+                    newInstructions.Add(instruction);
+                }
             }
             return newInstructions;
+        }
+
+        internal static DXKeys ResolveKey(string keyStr, DXKeys fallback)
+        {
+            if (!string.IsNullOrWhiteSpace(keyStr) && Enum.TryParse<DXKeys>(keyStr, true, out var result))
+                return result;
+            return fallback;
+        }
+
+        internal static int GetAutoSaveIntervalMs()
+        {
+            return ModOptions.Instance.AutoSaveInterval * 1000;
         }
 
         //public static void OnDeleteSaveGames(object[] __args)

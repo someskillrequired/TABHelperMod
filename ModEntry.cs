@@ -29,6 +29,12 @@ namespace TABHelperMod
                 HarmonyMethod postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnKeyUp)));
                 harmonyInstance.Patch(originalMethod, postfix: postfixMethod);
 
+                // Add start-screen Mod Settings button (postfix)
+                type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXSystem_StartScreen");
+                originalMethod = AccessToolsEX.MethodWithDecrypt(type, "OnLoad");
+                postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(ModSettingsUI), nameof(ModSettingsUI.OnStartScreenLoaded)));
+                harmonyInstance.Patch(originalMethod, postfix: postfixMethod);
+
                 if (ModOptions.Instance.KeepDisplayAllLifeMeters)
                 {
                     //DisplayAllLifeMeters
@@ -39,20 +45,16 @@ namespace TABHelperMod
                     harmonyInstance.Patch(originalMethod, transpiler: postfixMethod);
                 }
 
-                if (ModOptions.Instance.FastAttack)
-                {
-                    //FastAttack
-                    type = AccessToolsEX.TypeByNameWithDecrypt("ZX.Commands.ZXCommand");
-                    var ZXEntityType = AccessToolsEX.TypeByNameWithDecrypt("ZX.Entities.ZXEntity");
-                    var ZXCommandTargetType = AccessToolsEX.TypeByNameWithDecrypt("ZX.Commands.ZXCommandTarget");
-                    originalMethod = AccessToolsEX.MethodWithDecrypt(type, "PerformEffect", new Type[] { ZXEntityType, ZXCommandTargetType });
-                    postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnPerformAttack)));
-                    harmonyInstance.Patch(originalMethod, postfix: postfixMethod);
-                }
+                // FastAttack: always patch, runtime toggle checked in handler
+                type = AccessToolsEX.TypeByNameWithDecrypt("ZX.Commands.ZXCommand");
+                var fastAttackEntityType = AccessToolsEX.TypeByNameWithDecrypt("ZX.Entities.ZXEntity");
+                var fastAttackTargetType = AccessToolsEX.TypeByNameWithDecrypt("ZX.Commands.ZXCommandTarget");
+                originalMethod = AccessToolsEX.MethodWithDecrypt(type, "PerformEffect", new Type[] { fastAttackEntityType, fastAttackTargetType });
+                postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnPerformAttack)));
+                harmonyInstance.Patch(originalMethod, postfix: postfixMethod);
 
                 if (ModOptions.Instance.OptimizeTrainingSequence)
                 {
-                    //Training Order Correction
                     type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXSystem_GameLevel");
                     originalMethod = AccessToolsEX.MethodWithDecrypt(type, "_CommandsManager_OnOptionActivated", new Type[] { AccessToolsEX.TypeByNameWithDecrypt("ZX.GUI.ZXControlCommand") });
                     postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnOptionActivated)));
@@ -61,13 +63,11 @@ namespace TABHelperMod
 
                 if (ModOptions.Instance.GameMenuEnhancer)
                 {
-                    //GameMenuEnhancer
                     type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXSystem_GameLevel");
                     originalMethod = AccessToolsEX.MethodWithDecrypt(type, "ShowGameMenu");
                     postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnShowInGameMenu)));
                     harmonyInstance.Patch(originalMethod, prefix: postfixMethod);
 
-                    //GamePatch.DeleteGameSavePatch();
                     if (ModOptions.Instance.AutoDeleteBackups)
                     {
                         type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXGame");
@@ -80,7 +80,6 @@ namespace TABHelperMod
 
                 if (ModOptions.Instance.CancelResearchAnytime)
                 {
-                    //Cancel Research Anytime
                     type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXCampaignState");
                     originalMethod = AccessToolsEX.MethodWithDecrypt(type, "get_IDResearchsRecentUnlocked");
                     postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnGetIDResearchsRecentUnlocked)));
@@ -100,8 +99,6 @@ namespace TABHelperMod
                     var transpilerMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnUpdateNearestEnemyTranspiler)));
                     harmonyInstance.Patch(originalMethod, transpiler: transpilerMethod);
                 }
-
-
 
                 if (ModOptions.Instance.GameSpeedChange)
                 {
