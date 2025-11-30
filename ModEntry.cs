@@ -35,6 +35,14 @@ namespace TABHelperMod
                 postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(ModSettingsUI), nameof(ModSettingsUI.OnStartScreenLoaded)));
                 harmonyInstance.Patch(originalMethod, postfix: postfixMethod);
 
+                originalMethod = AccessToolsEX.MethodWithDecrypt(type, "NewSurvivalGame", new Type[] { typeof(string) });
+                var survivalTranspiler = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.NewSurvivalGameTranspiler)));
+                harmonyInstance.Patch(originalMethod, transpiler: survivalTranspiler);
+
+                originalMethod = AccessToolsEX.MethodWithDecrypt(type, "NewSurvivalGame", new Type[] { typeof(string) });
+                var infectedTranspiler = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.NewSurvivalGameInfectedTranspiler)));
+                harmonyInstance.Patch(originalMethod, transpiler: infectedTranspiler);
+
                 if (ModOptions.Instance.KeepDisplayAllLifeMeters)
                 {
                     //DisplayAllLifeMeters
