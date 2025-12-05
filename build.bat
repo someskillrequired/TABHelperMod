@@ -5,12 +5,12 @@ REM -----------------------------
 REM CONFIGURE THESE PATHS
 REM -----------------------------
 set MSBUILD="C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe"
-set SLN_PATH="C:\project_files\Scripts\TabHelper\TABHelperMod\TABHelperMod.sln"
+set SLN_PATH="C:\project_files\Scripts\TabHelper\SSR\SSR.sln"
 set CONFIG=Debug
 set PLATFORM="Any CPU"
 
-set DLL_SOURCE="C:\project_files\Scripts\TabHelper\TABHelperMod\bin\Debug\TABHelperMod.dll"
-set DLL_DEST="D:\Steam\steamapps\common\They Are Billions\Mods\3357549187\TABHelperMod.dll"
+set DLL_SOURCE="C:\project_files\Scripts\TabHelper\SSR\bin\Debug\SSR.dll"
+set DLL_DEST="D:\Steam\steamapps\common\They Are Billions\Mods\SSR\SSR.dll"
 
 REM -----------------------------
 

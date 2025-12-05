@@ -16,11 +16,6 @@ namespace TABHelperMod
 {
     internal static class ModSettingsUI
     {
-        private static readonly List<int> AutoSaveIntervals = new List<int> { 300, 600, 900, 1200, 1800, 2400, 3600 };
-        private static readonly List<int> WatchTowerRadii = new List<int> { 5, 10, 15, 20, 25, 30, 40, 100};
-        private static readonly List<int> BackupCounts = Enumerable.Range(1, 10).ToList();
-        private static readonly List<int> QuickBuyDelays = new List<int> { 0, 50, 100, 200, 400, 800 };
-
         internal static void OnStartScreenLoaded(object __instance)
         {
             try
@@ -57,8 +52,6 @@ namespace TABHelperMod
 
                 InvokeShow(windowType, window);
                 AddCloseButton(windowType, window);
-                AddTogglePage(windowType, window, "Options", BuildEntries(ModOptions.Instance));
-                AddKeyBindPage(windowType, window, "Key Binds");
                 AddRulesPage(windowType, window, "Rules");
             }
             catch (Exception e)
@@ -180,157 +173,6 @@ namespace TABHelperMod
             catch { }
         }
 
-        private static void AddTogglePage(Type windowType, object window, string tabTitle, IEnumerable<(Func<string> Text, Action Toggle)> entries)
-        {
-            try
-            {
-                MethodInfo addPage = AccessToolsEX.MethodWithDecrypt(windowType, "AddPage", new Type[] { typeof(string) });
-                if (addPage == null) addPage = FindMethodDeep(windowType, "AddPage");
-                FileLog.Log("[ModSettingsUI] AddPage method: " + (addPage == null ? "null" : addPage.ToString()));
-                if (addPage == null) return;
-
-                object page = addPage.Invoke(window, new object[] { tabTitle });
-                if (page == null) { FileLog.Log("[ModSettingsUI] page null"); return; }
-
-                object panel = page.GetType().GetProperty("Panel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(page, null);
-                if (panel == null) { FileLog.Log("[ModSettingsUI] panel null"); return; }
-
-                DXObject content = panel.GetType().GetProperty("Content", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(panel, null) as DXObject;
-                object cwObj = panel.GetType().GetProperty("ContentWidth", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(panel, null);
-                float contentWidth = cwObj is float ? (float)cwObj : 0f;
-                if (content == null || contentWidth <= 0f) { FileLog.Log("[ModSettingsUI] content null or width <=0"); return; }
-
-                DXGridLayout grid = DXGridLayout.NewFormLayout(contentWidth, 0, true);
-                content.AddObject(grid);
-
-                grid.X = -30f * DXScene.Unit;
-                grid.DefaultRowHeight = DXScene.Unit * 20f;
-                grid.Border = null;
-                grid.GridMargin = new RectangleF(DXScene.Unit * 1f, DXScene.Unit * 6f, DXScene.Unit * 147f, DXScene.Unit * 2f);
-                grid.DefaultCellSpacing = new SizeF(DXScene.Unit * 2f, DXScene.Unit * 4f);
-
-                ConstructorInfo ctor = AccessTools.Constructor(
-                    AccessToolsEX.TypeByNameWithDecrypt("ZX.GUI.ZXButtonLink"),
-                    new Type[] { typeof(string), typeof(DXKeys[]) });
-
-                foreach (var entry in entries)
-                {
-                    DXTextObject label = new DXTextObject();
-                    label.Text = entry.Text();
-
-                    DXTextButton btn = (DXTextButton)ctor.Invoke(new object[] { entry.Text(), Array.Empty<DXKeys>() });
-                    btn.MinTimeBetweenActivations = 200;
-                    btn.Width = contentWidth / 1.5f;
-                    btn.Activated += delegate
-                    {
-                        entry.Toggle();
-                        string newText = entry.Text();
-                        btn.Text = newText;
-                        label.Text = newText;
-                        ModOptions.Instance.Save();
-                    };
-
-                    grid.AddRow(new DXObject[] { label, btn });
-                }
-
-                grid.Update();
-            }
-            catch (Exception e)
-            {
-                FileLog.Log("[ModSettingsUI] Error in AddIniPage: " + e);
-            }
-        }
-
-        private static void AddKeyBindPage(Type windowType, object window, string tabTitle)
-        {
-            try
-            {
-                MethodInfo addPage = AccessToolsEX.MethodWithDecrypt(windowType, "AddPage", new Type[] { typeof(string) });
-                if (addPage == null) addPage = FindMethodDeep(windowType, "AddPage");
-                if (addPage == null) { FileLog.Log("[ModSettingsUI] AddPage not found for key binds"); return; }
-
-                object page = addPage.Invoke(window, new object[] { tabTitle });
-                object panel = page.GetType().GetProperty("Panel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(page, null);
-                if (panel == null) { FileLog.Log("[ModSettingsUI] keybind panel null"); return; }
-                DXObject content = panel.GetType().GetProperty("Content", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(panel, null) as DXObject;
-                object cwObj = panel.GetType().GetProperty("ContentWidth", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(panel, null);
-                float contentWidth = cwObj is float ? (float)cwObj : 0f;
-                if (content == null || contentWidth <= 0f) { FileLog.Log("[ModSettingsUI] keybind content null/width"); return; }
-
-                DXGridLayout grid = DXGridLayout.NewFormLayout(contentWidth, 0, true);
-                content.AddObject(grid);
-                grid.X = -142f * DXScene.Unit;
-                grid.DefaultRowHeight = DXScene.Unit * 28f;
-                grid.Border = null;
-                grid.GridMargin = new RectangleF(DXScene.Unit * 1f, DXScene.Unit * 6f, DXScene.Unit * 7f, DXScene.Unit * 2f);
-                grid.DefaultCellSpacing = new SizeF(DXScene.Unit * 2f, DXScene.Unit * 4f);
-
-                Type msgBoxType = AccessToolsEX.TypeByNameWithDecrypt("ZX.GUI.ZXMessageBox");
-                MethodInfo askForKey = AccessToolsEX.MethodWithDecrypt(msgBoxType, "AskForKey", new Type[] { typeof(Action<DXKeys>), typeof(Action) });
-                if (askForKey == null)
-                {
-                    FileLog.Log("[ModSettingsUI] AskForKey not found");
-                    return;
-                }
-
-                var bindings = new List<(string Label, Func<string> Get, Action<string> Set)>
-                {
-                    ("Display All Life Meters", () => ModOptions.Instance.KeyDisplayAllLifeMeters, v => ModOptions.Instance.KeyDisplayAllLifeMeters = v),
-                    ("Auto Go Watchtower", () => ModOptions.Instance.KeyAutoGoWatchTower, v => ModOptions.Instance.KeyAutoGoWatchTower = v),
-                    ("Game Speed Up", () => ModOptions.Instance.KeyGameSpeedUp, v => ModOptions.Instance.KeyGameSpeedUp = v),
-                    ("Game Speed Down", () => ModOptions.Instance.KeyGameSpeedDown, v => ModOptions.Instance.KeyGameSpeedDown = v),
-                    ("Filter Veteran", () => ModOptions.Instance.KeyFilterVeteran, v => ModOptions.Instance.KeyFilterVeteran = v),
-                    ("Find Bonus Item", () => ModOptions.Instance.KeyFindBonusItem, v => ModOptions.Instance.KeyFindBonusItem = v),
-                    ("Auto Disperse", () => ModOptions.Instance.KeyAutoDisperse, v => ModOptions.Instance.KeyAutoDisperse = v),
-                    ("Destroy Selected Units", () => ModOptions.Instance.KeyDestroyAllSelected, v => ModOptions.Instance.KeyDestroyAllSelected = v),
-                    ("Batch Cancel", () => ModOptions.Instance.KeyBatchCancel, v => ModOptions.Instance.KeyBatchCancel = v)
-                };
-
-                foreach (var binding in bindings)
-                {
-                    DXTextObject label = new DXTextObject();
-                    label.Text = binding.Label;
-
-                    DXTextButton changeBtn = new DXTextButton($"{binding.Label}: {binding.Get()} (Change)");
-                    changeBtn.MinTimeBetweenActivations = 200;
-                    changeBtn.Width = contentWidth / 1.5f;
-                    changeBtn.Height = DXScene.Unit * 30f;
-                    var tr = changeBtn.TextRenderer;
-                    if (tr != null)
-                    {
-                        var clone = (DXTextRenderer)tr.Clone();
-                        clone.Scale(0.9f);
-                        changeBtn.TextRenderer = clone;
-                    }
-
-                    Action rebind = () =>
-                    {
-                        askForKey.Invoke(null, new object[]
-                        {
-                            (Action<DXKeys>)(pressed =>
-                            {
-                                binding.Set(pressed.ToString());
-                                changeBtn.Text = $"{binding.Label}: {binding.Get()} (Change)";
-                                ModOptions.Instance.Save();
-                                ModOptions.Instance.ReloadFromDisk();
-                            }),
-                            (Action)(() => { })
-                        });
-                    };
-
-                    changeBtn.Activated += delegate { rebind(); };
-
-                    grid.AddRow(new DXObject[] { label, changeBtn });
-                }
-
-                grid.Update();
-            }
-            catch (Exception e)
-            {
-                FileLog.Log("[ModSettingsUI] Error in AddKeyBindingRows: " + e);
-            }
-        }
-
         private static void AddRulesPage(Type windowType, object window, string tabTitle)
         {
             try
@@ -408,7 +250,7 @@ namespace TABHelperMod
                     ModOptions.Instance.Save();
                     ModOptions.Instance.ReloadFromDisk();
                     FileLog.Log("[ModSettingsUI] Rules: default selected, loading from default folder");
-                    if (!TryHotReloadViaSteamAndSpecialKey(defaultFolder, defaultFolder) && !TryHotReloadRules(defaultFolder))
+                    if (!TryHotReloadViaSteamAndSpecialKey(defaultFolder, defaultFolder))
                         PromptRestartForRules();
                 });
 
@@ -430,7 +272,7 @@ namespace TABHelperMod
                             ModOptions.Instance.ReloadFromDisk();
 
                             FileLog.Log("[ModSettingsUI] Rules: switched to " + displayName + ", loading rule set without copying");
-                            if (!TryHotReloadViaSteamAndSpecialKey(dir, defaultFolder) && !TryHotReloadRules(dir))
+                            if (!TryHotReloadViaSteamAndSpecialKey(dir, defaultFolder))
                                 PromptRestartForRules();
                         });
                     }
@@ -446,31 +288,6 @@ namespace TABHelperMod
             catch (Exception e)
             {
                 FileLog.Log("[ModSettingsUI] Error in AddRulesPage: " + e);
-            }
-        }
-
-        private static void CopyRuleSetWithFallback(string sourceDir, string defaultDir, string targetRoot, string[] files)
-        {
-            try
-            {
-                foreach (var file in files)
-                {
-                    string src = Path.Combine(sourceDir, file);
-                    string fallback = Path.Combine(defaultDir, file);
-                    string target = Path.Combine(targetRoot, file);
-                    string chosen = File.Exists(src) ? src : fallback;
-                    if (!File.Exists(chosen))
-                    {
-                        FileLog.Log("[ModSettingsUI] Missing file (no fallback): " + file);
-                        continue;
-                    }
-                    File.Copy(chosen, target, true);
-                    FileLog.Log("[ModSettingsUI] Copied " + chosen + " -> " + target);
-                }
-            }
-            catch (Exception ex)
-            {
-                FileLog.Log("[ModSettingsUI] CopyRuleSetWithFallback failed: " + ex);
             }
         }
 
@@ -525,90 +342,6 @@ namespace TABHelperMod
             {
                 Traverse.Create(current).MethodWithDecrypt("ShowMessage", new Type[] { typeof(string), typeof(System.Drawing.Color), typeof(int) })
                     .GetValue(message, System.Drawing.Color.White, 2000);
-            }
-        }
-
-        private static bool TryHotReloadRules(string sourceDir = null)
-        {
-            try
-            {
-                var zxGameType = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXGame");
-                if (zxGameType == null) { FileLog.Log("[ModSettingsUI] HotReload: ZXGame type null"); return false; }
-                var current = Traverse.Create(zxGameType).PropertyWithDecrypt("Current").GetValue();
-                if (current == null) { FileLog.Log("[ModSettingsUI] HotReload: ZXGame.Current null"); return false; }
-
-                string baseDir = sourceDir ?? Directory.GetCurrentDirectory();
-                string rulesRoot = Directory.Exists(baseDir) ? baseDir : Directory.GetCurrentDirectory();
-
-                string rulesX = Path.Combine(rulesRoot, "ZXRules.xlsx");
-                string stringsX = Path.Combine(rulesRoot, "ZXStrings.xlsx");
-                string campaignX = Path.Combine(rulesRoot, "ZXCampaign.xlsx");
-                if (!File.Exists(rulesX) || !File.Exists(stringsX) || !File.Exists(campaignX))
-                {
-                    FileLog.Log("[ModSettingsUI] HotReload: missing xlsx file(s) in " + rulesRoot);
-                    return false;
-                }
-
-                var tmDef = DXTableManager.FromExcel(rulesX, false);
-                var tmStr = DXTableManager.FromExcel(stringsX, false);
-                var tmCamp = DXTableManager.FromExcel(campaignX, false);
-
-                var trav = Traverse.Create(current);
-                trav.Property("TableManagerDefinitions").SetValue(tmDef);
-                trav.Property("TableManagerStrings").SetValue(tmStr);
-                trav.Property("TableManagerCampaign").SetValue(tmCamp);
-
-                // Update campaign strings tables if available
-                var updCampaign = AccessTools.Method(zxGameType, "UpdateCampaignStringsTables");
-                updCampaign?.Invoke(current, null);
-
-                // Refresh defaults per template
-                var proj = trav.Property("CurrentProject").GetValue();
-                var dicDefaults = trav.Field("DicDefaultParamsPerTemplate").GetValue<Dictionary<string, object>>();
-                if (proj != null && dicDefaults != null)
-                {
-                    var entTemplates = Traverse.Create(proj).Property("EntityTemplates").GetValue<IDictionary>();
-                    if (entTemplates != null)
-                    {
-                        foreach (DictionaryEntry kv in entTemplates)
-                        {
-                            var tmpl = kv.Value;
-                            var ent = Traverse.Create(tmpl).Property("Entity").GetValue();
-                            if (ent != null && ent.GetType().Name == "ZXEntity")
-                            {
-                                string name = Traverse.Create(tmpl).Property("Name").GetValue<string>();
-                                if (name != null && dicDefaults.TryGetValue(name, out var defObj) && defObj != null)
-                                {
-                                    Traverse.Create(defObj).Method("ReadParameters", new Type[] { typeof(string) }).GetValue(name);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Refresh command params
-                var commands = trav.Field("Commands").GetValue<IEnumerable>();
-                if (commands != null)
-                {
-                    foreach (var cmd in commands)
-                    {
-                        Traverse.Create(cmd).Method("ReadParams").GetValue();
-                    }
-                }
-
-                // Update themes/campaign caches
-                var mapTheme = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXMapTheme");
-                AccessTools.Method(mapTheme, "UpdateThemes", new Type[] { typeof(bool) })?.Invoke(null, new object[] { false });
-                var campaign = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXCampaign");
-                AccessTools.Method(campaign, "LoadAll")?.Invoke(null, null);
-
-                FileLog.Log("[ModSettingsUI] HotReload: finished via full paths");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                FileLog.Log("[ModSettingsUI] HotReload failed: " + ex);
-                return false;
             }
         }
 
@@ -732,7 +465,6 @@ namespace TABHelperMod
             return tm;
         }
 
-
         private static void PromptRestartForRules()
         {
             // Skip runtime reload attempts; just prompt restart
@@ -821,90 +553,6 @@ namespace TABHelperMod
                 FileLog.Log("[ModSettingsUI] ShowRestartDialogInGame failed: " + ex);
                 return false;
             }
-        }
-
-        private static void RestartGameExecutable()
-        {
-            string exe = Path.Combine(Directory.GetCurrentDirectory(), "TheyAreBillions.exe");
-            try
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = exe,
-                    WorkingDirectory = Directory.GetCurrentDirectory(),
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception startEx)
-            {
-                FileLog.Log("[ModSettingsUI] Failed to start game for restart: " + startEx);
-            }
-        }
-
-        private static void LogMethods(Type t)
-        {
-            try
-            {
-                var methods = t.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                               .Select(m => m.Name + " (" + m.GetParameters().Length + " params)")
-                               .Distinct();
-                }
-            catch { }
-        }
-
-        private static bool CopyRulesFile(string sourcePath, string destPath)
-        {
-            try
-            {
-                using (var src = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-                using (var dst = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete))
-                {
-                    src.CopyTo(dst);
-                }
-                FileLog.Log("[ModSettingsUI] Copied rules: " + sourcePath + " -> " + destPath);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                FileLog.Log("[ModSettingsUI] CopyRulesFile failed: " + ex);
-                return false;
-            }
-        }
-
-        private static IEnumerable<(Func<string> Text, Action Toggle)> BuildEntries(ModOptions o)
-        {
-            Func<bool, string> OnOff = v => v ? "On" : "Off";
-
-            yield return (() => "KeepDisplayAllLifeMeters: " + OnOff(o.KeepDisplayAllLifeMeters), () => o.KeepDisplayAllLifeMeters = !o.KeepDisplayAllLifeMeters);
-            yield return (() => "AutoGoWatchTower: " + OnOff(o.AutoGoWatchTower), () => o.AutoGoWatchTower = !o.AutoGoWatchTower);
-            yield return (() => "AutoGoWatchTowerRadius: " + o.AutoGoWatchTowerRadius, () => o.AutoGoWatchTowerRadius = NextFromList(o.AutoGoWatchTowerRadius, WatchTowerRadii));
-            yield return (() => "NumpadFilterVeteran: " + OnOff(o.NumpadFilterVeteran), () => o.NumpadFilterVeteran = !o.NumpadFilterVeteran);
-            yield return (() => "GameSpeedChange: " + OnOff(o.GameSpeedChange), () => o.GameSpeedChange = !o.GameSpeedChange);
-            yield return (() => "FilterVeteranUnit: " + OnOff(o.FilterVeteranUnit), () => o.FilterVeteranUnit = !o.FilterVeteranUnit);
-            yield return (() => "AutoFindBonusItem: " + OnOff(o.AutoFindBonusItem), () => o.AutoFindBonusItem = !o.AutoFindBonusItem);
-            yield return (() => "AutoDisperse: " + OnOff(o.AutoDisperse), () => o.AutoDisperse = !o.AutoDisperse);
-            yield return (() => "FastAttack: " + OnOff(o.FastAttack), () => o.FastAttack = !o.FastAttack);
-            yield return (() => "OptimizeTrainingSequence: " + OnOff(o.OptimizeTrainingSequence), () => o.OptimizeTrainingSequence = !o.OptimizeTrainingSequence);
-            yield return (() => "DestroyAllSelectedUnits: " + OnOff(o.DestroyAllSelectedUnits), () => o.DestroyAllSelectedUnits = !o.DestroyAllSelectedUnits);
-            yield return (() => "GameMenuEnhancer: " + OnOff(o.GameMenuEnhancer), () => o.GameMenuEnhancer = !o.GameMenuEnhancer);
-            yield return (() => "OptimizeAttackPriority: " + OnOff(o.OptimizeAttackPriority), () => o.OptimizeAttackPriority = !o.OptimizeAttackPriority);
-            yield return (() => "CancelResearchAnytime: " + OnOff(o.CancelResearchAnytime), () => o.CancelResearchAnytime = !o.CancelResearchAnytime);
-            yield return (() => "DisableAutoSave: " + OnOff(o.DisableAutoSave), () => o.DisableAutoSave = !o.DisableAutoSave);
-            yield return (() => "AutoSaveInterval: " + o.AutoSaveInterval + "s", () => o.AutoSaveInterval = NextFromList(o.AutoSaveInterval, AutoSaveIntervals));
-            yield return (() => "MaxSaveBackup: " + o.MaxSaveBackup, () => o.MaxSaveBackup = NextFromList(o.MaxSaveBackup, BackupCounts));
-            yield return (() => "AutoDeleteBackups: " + OnOff(o.AutoDeleteBackups), () => o.AutoDeleteBackups = !o.AutoDeleteBackups);
-            yield return (() => "EnhancedSelection: " + OnOff(o.EnhancedSelection), () => o.EnhancedSelection = !o.EnhancedSelection);
-            yield return (() => "DeselectUnitsAfterTowerSearch: " + OnOff(o.DeselectUnitsAfterTowerSearch), () => o.DeselectUnitsAfterTowerSearch = !o.DeselectUnitsAfterTowerSearch);
-            yield return (() => "BatchCancelCommand: " + OnOff(o.BatchCancelCommand), () => o.BatchCancelCommand = !o.BatchCancelCommand);
-            yield return (() => "QuickBuyResource: " + OnOff(o.QuickBuyResource), () => o.QuickBuyResource = !o.QuickBuyResource);
-            yield return (() => "QuickBuyResourceDelay: " + o.QuickBuyResourceDelay + "ms", () => o.QuickBuyResourceDelay = NextFromList(o.QuickBuyResourceDelay, QuickBuyDelays));
-        }
-
-        private static int NextFromList(int current, List<int> candidates)
-        {
-            int idx = candidates.IndexOf(current);
-            if (idx < 0 || idx + 1 >= candidates.Count) return candidates[0];
-            return candidates[idx + 1];
         }
 
         private static void RefreshCurrentMenu(object instance)

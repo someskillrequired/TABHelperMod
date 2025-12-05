@@ -16,23 +16,17 @@ namespace TABHelperMod
 {
     public class ModEntry : ModBase
     {
-        internal static Harmony harmonyInstance = new Harmony("com.example.tabhelpermod");
+        internal static Harmony harmonyInstance = new Harmony("com.example.SSR");
         public override void OnLoad(ModInfos modInfos)
         {
             try
             {
                 ModOptions.Instance.Load(modInfos);
 
-                //Key Listener
-                Type type = AccessToolsEX.TypeByNameWithDecrypt("DXVision.DXGame");
-                MethodInfo originalMethod = AccessTools.Method(type, "ProcessKeyUp", new Type[] { typeof(DXKeys) });
-                HarmonyMethod postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnKeyUp)));
-                harmonyInstance.Patch(originalMethod, postfix: postfixMethod);
-
                 // Add start-screen Mod Settings button (postfix)
-                type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXSystem_StartScreen");
-                originalMethod = AccessToolsEX.MethodWithDecrypt(type, "OnLoad");
-                postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(ModSettingsUI), nameof(ModSettingsUI.OnStartScreenLoaded)));
+                Type type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXSystem_StartScreen");
+                MethodInfo originalMethod = AccessToolsEX.MethodWithDecrypt(type, "OnLoad");
+                HarmonyMethod postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(ModSettingsUI), nameof(ModSettingsUI.OnStartScreenLoaded)));
                 harmonyInstance.Patch(originalMethod, postfix: postfixMethod);
 
                 originalMethod = AccessToolsEX.MethodWithDecrypt(type, "NewSurvivalGame", new Type[] { typeof(string) });
@@ -42,124 +36,6 @@ namespace TABHelperMod
                 originalMethod = AccessToolsEX.MethodWithDecrypt(type, "NewSurvivalGame", new Type[] { typeof(string) });
                 var infectedTranspiler = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.NewSurvivalGameInfectedTranspiler)));
                 harmonyInstance.Patch(originalMethod, transpiler: infectedTranspiler);
-
-                if (ModOptions.Instance.KeepDisplayAllLifeMeters)
-                {
-                    //DisplayAllLifeMeters
-                    //System.Void ZX.Components.CLife::OnUpdateSceneObjectParallel()
-                    type = AccessToolsEX.TypeByNameWithDecrypt("ZX.Components.CLife");
-                    originalMethod = AccessToolsEX.MethodWithDecrypt(type, "OnUpdateSceneObjectParallel");
-                    postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnUpdateSceneObjectParallel)));
-                    harmonyInstance.Patch(originalMethod, transpiler: postfixMethod);
-                }
-
-                // FastAttack: always patch, runtime toggle checked in handler
-                type = AccessToolsEX.TypeByNameWithDecrypt("ZX.Commands.ZXCommand");
-                var fastAttackEntityType = AccessToolsEX.TypeByNameWithDecrypt("ZX.Entities.ZXEntity");
-                var fastAttackTargetType = AccessToolsEX.TypeByNameWithDecrypt("ZX.Commands.ZXCommandTarget");
-                originalMethod = AccessToolsEX.MethodWithDecrypt(type, "PerformEffect", new Type[] { fastAttackEntityType, fastAttackTargetType });
-                postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnPerformAttack)));
-                harmonyInstance.Patch(originalMethod, postfix: postfixMethod);
-
-                if (ModOptions.Instance.OptimizeTrainingSequence)
-                {
-                    type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXSystem_GameLevel");
-                    originalMethod = AccessToolsEX.MethodWithDecrypt(type, "_CommandsManager_OnOptionActivated", new Type[] { AccessToolsEX.TypeByNameWithDecrypt("ZX.GUI.ZXControlCommand") });
-                    postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnOptionActivated)));
-                    harmonyInstance.Patch(originalMethod, prefix: postfixMethod);
-                }
-
-                if (ModOptions.Instance.GameMenuEnhancer)
-                {
-                    type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXSystem_GameLevel");
-                    originalMethod = AccessToolsEX.MethodWithDecrypt(type, "ShowGameMenu");
-                    postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnShowInGameMenu)));
-                    harmonyInstance.Patch(originalMethod, prefix: postfixMethod);
-
-                    if (ModOptions.Instance.AutoDeleteBackups)
-                    {
-                        type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXGame");
-                        originalMethod = AccessToolsEX.MethodWithDecrypt(type, "DeleteSaveGames", new Type[] { typeof(string) });
-                        var transpilerMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.DeleteSaveGamesTranspiler)));
-                        postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnDeleteSaveGames)));
-                        harmonyInstance.Patch(originalMethod, postfix: postfixMethod, transpiler: transpilerMethod);
-                    }
-                }
-
-                if (ModOptions.Instance.CancelResearchAnytime)
-                {
-                    type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXCampaignState");
-                    originalMethod = AccessToolsEX.MethodWithDecrypt(type, "get_IDResearchsRecentUnlocked");
-                    postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnGetIDResearchsRecentUnlocked)));
-                    harmonyInstance.Patch(originalMethod, prefix: postfixMethod);
-
-                    type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXCampaignState");
-                    originalMethod = AccessToolsEX.MethodWithDecrypt(type, "get_HeroPerksTakenNow");
-                    postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnGetHeroPerksTakenNow)));
-                    harmonyInstance.Patch(originalMethod, prefix: postfixMethod);
-                }
-
-                if (ModOptions.Instance.OptimizeAttackPriority)
-                {
-                    //Attack Priority Assistance
-                    type = AccessToolsEX.TypeByNameWithDecrypt("ZX.Components.CEntityWatcher");
-                    originalMethod = AccessToolsEX.MethodWithDecrypt(type, "UpdateNearestEnemy", new Type[] { typeof(bool) });
-                    var transpilerMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnUpdateNearestEnemyTranspiler)));
-                    harmonyInstance.Patch(originalMethod, transpiler: transpilerMethod);
-                }
-
-                if (ModOptions.Instance.GameSpeedChange)
-                {
-                    //Game Speed Change
-                    type = AccessToolsEX.TypeByNameWithDecrypt("DXVision.DXGame");
-                    originalMethod = AccessTools.Method(type, "set_Paused", new Type[] { typeof(bool) });
-                    postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnSetPaused)));
-                    harmonyInstance.Patch(originalMethod, prefix: postfixMethod);
-                }
-
-                if (ModOptions.Instance.DisableAutoSave)
-                {
-                    //Disable Auto-Save
-                    type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXSystem_GameLevel");
-                    originalMethod = AccessToolsEX.MethodWithDecrypt(type, "SaveBackup");
-                    postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnSaveBackup)));
-                    harmonyInstance.Patch(originalMethod, prefix: postfixMethod);
-                }
-
-                if (!ModOptions.Instance.DisableAutoSave)
-                {
-                    //change Auto-Save interval
-                    type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXSystem_GameLevel");
-                    originalMethod = AccessToolsEX.MethodWithDecrypt(type, "CheckAutoBackup");
-                    postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnCheckAutoBackup)));
-                    harmonyInstance.Patch(originalMethod, transpiler: postfixMethod);
-                }
-
-                if (ModOptions.Instance.EnhancedSelection)
-                {
-                    type = AccessToolsEX.TypeByNameWithDecrypt("ZX.ZXSystem_GameLevel");
-                    originalMethod = AccessToolsEX.MethodWithDecrypt(type, "_OWorld_MouseDragFinish", new Type[] { typeof(DXObject), typeof(System.Drawing.Point) });
-                    postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnCorrectSelection)));
-                    harmonyInstance.Patch(originalMethod, prefix: postfixMethod);
-                }
-
-                if (ModOptions.Instance.QuickBuyResource)
-                {
-                    //QuickBuyResource
-                    //ZX.Commands.TradeCommand::OnExecute(ZX.Entities.ZXEntity,ZX.Commands.ZXCommandTarget)
-                    List<string> TradeCommand = new List<string>() { "BuyIron", "BuyOil", "BuyStone", "BuyWood", "SellIron", "SellOil", "SellStone", "SellWood" };
-                    var ZXEntityType = AccessToolsEX.TypeByNameWithDecrypt("ZX.Entities.ZXEntity");
-                    var ZXCommandTargetType = AccessToolsEX.TypeByNameWithDecrypt("ZX.Commands.ZXCommandTarget");
-                    foreach (string command in TradeCommand)
-                    {
-                        type = AccessToolsEX.TypeByNameWithDecrypt("ZX.Commands." + command);
-                        originalMethod = AccessToolsEX.MethodWithDecrypt(type, "OnExecute", new Type[] { ZXEntityType, ZXCommandTargetType });
-                        postfixMethod = new HarmonyMethod(AccessTools.Method(typeof(GamePatch), nameof(GamePatch.OnTradeCommandExecuted)));
-                        harmonyInstance.Patch(originalMethod, postfix: postfixMethod);
-                    }
-
-                }
-
             }
             catch (Exception e)
             {
